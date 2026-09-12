@@ -32,7 +32,9 @@ namespace SandBox
 
             builder.Services.AddSingleton(new ConnectionExplorerService(dataCache));
 
-            var keysPath = Path.Combine(builder.Environment.ContentRootPath, "keys");
+            var keysPath = OperatingSystem.IsWindows()
+                    ? Path.Combine(builder.Environment.ContentRootPath, "keys")
+                    : "/var/lib/sandbox/keys";
 
             builder.Services.AddDataProtection()
                 .PersistKeysToFileSystem(new DirectoryInfo(keysPath))
