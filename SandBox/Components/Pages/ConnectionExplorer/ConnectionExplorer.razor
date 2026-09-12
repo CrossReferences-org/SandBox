@@ -1,0 +1,472 @@
+﻿@attribute [Microsoft.AspNetCore.Components.Route(BaseRoute)]
+@using SandBox.Helpers
+@using SandBox.Services.ConnectionExplorer
+@using System.Text
+@inject ConnectionExplorerService Connections
+
+
+<PageTitle>@_pageTitle</PageTitle>
+
+<LookupForm Action="@LinkBase"
+            Books="Connections.Books"
+            Translation="@_translation"
+            SelectedBookId="@(_result?.Primary?.BookId ?? 1)"
+            SelectedChapter="@(_result?.Primary?.Chapter ?? 1)"
+            SelectedChapter2="@(Chapter2)"
+            SelectedVerse="@(_result?.Primary?.Verse ?? 1)"
+            SelectedVerse2="@Verse2"
+            N="@(N ?? 30)"
+            CollectedIds="@(_collected.ToArray())" />
+
+@if (_collected.Count > 0)
+{
+    <details open="@(ExecuteIDs == true)" class="collected">
+        <summary class="collected__summary">
+            <strong>@_collected.Count collected</strong>
+            <div class="collected__actions">
+                <a href="@BuildClearCollectionLink()" class="collected__clear">Clear</a>
+                <a href="@BuildExecuteLink()" class="collected__run">Run</a>
+            </div>
+        </summary>
+
+        <ol class="collected__list">
+            @foreach (var verseGroup in Connections.GetDisplayVersesFromIds(_collected, _translation)
+                                                   .OrderBy(x => x.Id)
+                                                   .GroupBy(x => $"{x.BookName} {x.Chapter}"))
+            {
+                <li class="collected__item">
+                    <b>@verseGroup.Key</b><br />
+                    <SourceContextVerses Verses="verseGroup"
+                                         LinkBuilder="ContextVerseLink"
+                                         ToggleLinkBuilder="BuildToggleLink"
+                                         IsCollected="@(id => _collected.Contains(id))" />
+                </li>
+            }
+        </ol>
+    </details>
+}
+
+
+@if (_result is null)
+{
+    <WelcomeScreen />
+}
+else if (!_result.Found)
+{
+    <p class="note">No matching verse found.</p>
+}
+else
+{
+    var primary = _result.Primary!;
+    var toVerse_String = Verse2.HasValue && Verse < Verse2 ? $" - {_result.Cohort[^1].Verse.Verse}" : "";
+    var primaryRef = _result.PossiblyUpdatedRefs.Chapter2.HasValue
+        ? $"{primary.BookName} {primary.Chapter}:{primary.Verse} - {_result.PossiblyUpdatedRefs.Chapter2}:{_result.PossiblyUpdatedRefs.Verse2}"
+        : $"{primary.BookName} {primary.Chapter}:{primary.Verse}{toVerse_String}";
+
+    if (_collected.Count > 0 && ExecuteIDs == true)
+    {
+        <p class="note">Showing references for collected verses.</p>
+    }
+    else
+    {
+        <h1>@referencesForLabel() @primaryRef</h1>
+
+        <div class="source">
+            @if (!string.IsNullOrWhiteSpace(AnchorPhrase))
+            {
+                <div class="filter-note">
+                    Filtering by anchor: `<strong>@AnchorPhrase</strong>`
+                    (<a href="@BuildClearLink()">clear</a>)
+                </div>
+                <hr>
+            }
+
+            <SourceContextVerses Verses="_result.ContextBefore"
+            LinkBuilder="ContextVerseLink"
+            ToggleLinkBuilder="BuildToggleLink"
+            IsCollected="@(id => _collected.Contains(id))" />
+
+            <SourceVerses Verses="_result.Cohort"
+            AnchorLinkBuilder="BuildAnchorLink"
+            Sequential="@(_translation == BibleTranslation.KJV)"
+            ToggleLinkBuilder="BuildToggleLink"
+            IsCollected="@(id => _collected.Contains(id))" />
+
+            <SourceContextVerses Verses="_result.ContextAfter"
+            LinkBuilder="ContextVerseLink"
+            ToggleLinkBuilder="BuildToggleLink"
+            IsCollected="@(id => _collected.Contains(id))" />
+        </div>
+    }
+
+    double maxOfBooksScore = _result.bookHitScores.Values.DefaultIfEmpty(0).Max();
+
+    @if (FilterBooks?.Length > 0)
+    {
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 1rem;">
+            <span><strong>@FilterBooks.Length</strong> books selected</span>
+            <a href="@BuildClearBookFilterLink()" style="font-size: 0.85rem;">Clear filters</a>
+        </div>
+    }
+
+    <div class="book-filter-grid">
+        @foreach (var book in Connections.Books.OrderBy(b => b.ID)) // Ensure 1 to 66 order
+        {
+            _result.bookHitScores.TryGetValue(book.ID, out double bookMaxScore);
+            bool isSelected = FilterBooks?.Contains(book.ID) == true;
+
+            // Calculate green intensity. If count is 0, it's gray.
+            // If > 0, opacity scales from 0.2 (light green) to 1.0 (solid green).
+            double intensity = bookMaxScore == 0 ? 0 : 
+                               maxOfBooksScore == 1 ? 1.0 :
+                               0.2 + (0.8 * ((double)bookMaxScore / maxOfBooksScore));
+                           
+            string bgColor = bookMaxScore == 0 ? "#e2e8f0" : $"rgba(34, 197, 94, {intensity.ToString(System.Globalization.CultureInfo.InvariantCulture)})";
+        
+            // Ensure text is readable on darker greens
+            string textColor = (bookMaxScore > 0 && intensity > 0.5) ? "#ffffff" : "#334155";
+            string selectedClass = isSelected ? "book-node--selected" : "";
+
+            <a href="@BuildBookFilterLink(book.ID)" 
+               class="book-node @selectedClass" 
+               style="background-color: @bgColor; color: @textColor;"
+               title="@book.NameEng (@bookMaxScore references)">
+                <span class="book-node__abbr">@book.AbbreviationEng</span>
+                @if (bookMaxScore > 0)
+                {
+                    <span class="book-node__count">@Math.Round(@bookMaxScore, 2)</span>
+                }
+            </a>
+        }
+    </div>
+
+    <div class="row header">
+        <div class="breakdown">@scoreLabel()</div>
+        <div></div>
+    </div>
+
+    RankedHit[] allUnCut_Ordered = _result.Ranked
+                                                   .OrderBy(x => x.Verse.Id)
+                                                   .ToArray();
+
+    Dictionary<int, int> indexById = new(allUnCut_Ordered.Length);
+    for (int i = 0; i < allUnCut_Ordered.Length; i++)
+        indexById[allUnCut_Ordered[i].Verse.Id] = i;
+
+    HashSet<RankedHit> used = [];
+    double maxScore = _result.Ranked.FirstOrDefault()?.Score ?? 0;
+    int groupedCount = 0;
+
+    @foreach (RankedHit rankedHit in _result.Ranked)
+    {
+        if (!used.Add(rankedHit)) // If the verse already appeared, it does not get another chance.
+            continue;
+
+        if (groupedCount++ >= N)
+            break;
+
+        if (!indexById.TryGetValue(rankedHit.Verse.Id, out int ri))
+            continue;
+        
+        IEnumerable<RankedHit> context = MiscHelpers.GatherContext(allUnCut_Ordered, rankedHit, ri, used);
+
+        string refDisplay = $"{rankedHit.Verse.BookName} {rankedHit.Verse.Chapter}";
+        double minOpacity = 0.2;
+        bool first = true;
+
+       
+    
+
+
+<div class="row">
+    <div class="breakdown">
+        <div>@Math.Round(rankedHit.Score, 2).ToString("0.00")</div>
+        @{
+            var parts = rankedHit.CountInfo;
+            string Pct(double v) => (v / maxScore * 100)
+                .ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        <div class="score-bar">
+            <div class="score-bar__seg--l1"       style="width: @(Pct(parts.Score_L1))%"></div>
+            <div class="score-bar__seg--incoming" style="width: @(Pct(parts.Score_L1Incoming))%"></div>
+            <div class="score-bar__seg--overlap"  style="width: @(Pct(parts.Score_L1_Incoming_L1_Overlap))%"></div>
+            <div class="score-bar__seg--l2"       style="width: @(Pct(parts.Score_L2))%"></div>
+            <div class="score-bar__seg--l3"       style="width: @(Pct(parts.Score_L3))%"></div>
+        </div>
+    </div>
+    <div>
+        <div class="ref">@refDisplay</div>
+        <div class="text">
+            @* Each row shows the ranked hit plus its chapter neighbours (from GatherContext).
+               Neighbours may or may not also be ranked results in their own right. *@
+            @foreach (var item in context)
+            {
+                double ratio = rankedHit.Score > 0 ? (double)item.Score / rankedHit.Score : 0;
+                double opacity = Math.Round(minOpacity + (ratio * (1.0 - minOpacity)), 2);
+                string opacityStyle = $"opacity: {opacity.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+                string itemHref = $"{LinkBase}?id={item.Verse.Id}&tr={_result.Translation}&n={N}{IdsQuery()}";
+                string vsNr = !first && item.Verse.Verse == 1 ? $"{item.Verse.Chapter}:{item.Verse.Verse}" : $"{item.Verse.Verse}";
+                first = false;
+
+                @* IncomingClass: per-verse colour — what this verse is (incoming-heavy vs outgoing-heavy).
+                   LevelClass: relational colour — lights up only when this neighbour reached the results
+                   for the same reason the row's anchor did (both L1, both incoming, or both L2).
+                   Together they say "what I am" and "whether I'm here for the same reason as the row". *@
+                <a href="@itemHref" data-enhance-nav="false" class="lnk-plain">
+                    <sup class="vs-num @IncomingClass(item.CountInfo) @LevelClass(rankedHit.CountInfo, item.CountInfo)">@vsNr</sup>
+                </a>
+                <a href="@BuildToggleLink(item.Verse.Id)" data-enhance-nav="true" class="lnk-bare">
+                    @(_collected.Contains(item.Verse.Id) ? "−" : "+")
+                </a>
+                <span style="@opacityStyle">@item.Verse.Text</span>
+            }
+        </div>
+    </div>
+</div>
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "b")] public int? Book { get; set; }
+    [SupplyParameterFromQuery(Name = "ch")] public int? Chapter { get; set; }
+    [SupplyParameterFromQuery(Name = "ch2")] public int? Chapter2 { get; set; }
+    [SupplyParameterFromQuery(Name = "v")] public int? Verse { get; set; }
+    [SupplyParameterFromQuery(Name = "v2")] public int? Verse2 { get; set; }
+    [SupplyParameterFromQuery(Name = "id")] public int? ID { get; set; }
+    [SupplyParameterFromQuery(Name = "tr")] public string? Translation { get; set; }
+    [SupplyParameterFromQuery(Name = "n")] public int? N { get; set; }
+    [SupplyParameterFromQuery(Name = "ap")] public string? AnchorPhrase { get; set; }
+    [SupplyParameterFromQuery(Name = "ids")] public int[]? IdCollection { get; set; } = [];
+    [SupplyParameterFromQuery(Name = "xids")] public bool? ExecuteIDs { get; set; }
+    [SupplyParameterFromQuery(Name = "fb")] public int[]? FilterBooks { get; set; }
+
+    public const string BaseRoute = "/connection-explorer";          // for [Route]
+    public const string LinkBase = "/sandbox/connection-explorer";  // for links and forms
+
+    private ConnectionExplorerResult? _result;
+    private BibleTranslation _translation = BibleTranslation.BSB;
+    private string _pageTitle = "Cross-references";
+
+    private HashSet<int> _collected = new();
+
+    protected override void OnParametersSet()
+    {
+        _translation = Enum.TryParse(Translation, out BibleTranslation tr) ? tr : BibleTranslation.BSB;
+        if (string.IsNullOrWhiteSpace(Translation))
+            Translation = _translation.ToString();
+
+        _collected = IdCollection is null ? new() : new(IdCollection);
+
+        var hasInput = Book.HasValue || Chapter.HasValue || Verse.HasValue || ID.HasValue || (_collected.Count > 0 && ExecuteIDs == true);
+        if (!hasInput)
+        {
+            _result = null;
+            _pageTitle = "Cross-references";
+            return;
+        }
+
+
+        _result = Connections.GetConnections(Book, 
+                                             Chapter,
+                                             Chapter2,
+                                             Verse, 
+                                             Verse2, 
+                                             ID, 
+                                             _translation, 
+                                             AnchorPhrase, 
+                                             ExecuteIDs == true ? IdCollection : null, 
+                                             ExecuteIDs, 
+                                             filterBooks: FilterBooks);
+
+        Chapter = _result.PossiblyUpdatedRefs.Chapter;
+        Chapter2 = _result.PossiblyUpdatedRefs.Chapter2;
+        Verse = _result.PossiblyUpdatedRefs.Verse;
+        Verse2 = _result.PossiblyUpdatedRefs.Verse2;
+
+        if (_result.Found && _result.Primary is { } p)
+        {
+            string toVerse_String = Verse2.HasValue && Verse < Verse2 ? $"-{_result.Cohort[^1].Verse.Verse}" : "";
+            _pageTitle = $"{p.BookName} {p.Chapter}:{p.Verse}{toVerse_String}";
+        }
+    }
+
+
+    private string IdsQuery(IEnumerable<int>? idsCol = null)
+    {
+        string collectedIds = string.Concat((idsCol ?? _collected).OrderBy(x => x).Select(id => $"&ids={id}"));
+
+        return collectedIds;
+    }
+
+
+    string IncomingClass(CountInfo c) =>
+        c.L1_Incoming > 0 ? "vs-num--incoming" : "vs-num--outgoing";
+
+    string LevelClass(CountInfo a, CountInfo b) =>
+        (a.GetPrimaryConnectionKind(), b.GetPrimaryConnectionKind()) switch
+        {
+            (1, 1) => "vs-num--lvl1",
+            (2, 2) => "vs-num--lvl2",
+            (3, 3) => "vs-num--lvl3",
+            _ => ""
+        };
+
+    #region Labels
+    string referencesForLabel() => _translation switch
+    {
+        BibleTranslation.AOV => "Verwysings vir",
+        _ => "References for"
+    };
+
+    string scoreLabel() => _translation switch
+    {
+        BibleTranslation.AOV => "Telling",
+        _ => "Score"
+    };
+    #endregion
+
+    #region LinkBuilding
+    private sealed record LinkSpec(
+    int? Id = null,
+    int? Book = null,
+    int? Chapter = null,
+    int? Chapter2 = null,
+    int? Verse = null,
+    int? Verse2 = null,
+    string? Translation = null,
+    int? N = null,
+    string? AnchorPhrase = null,
+    IEnumerable<int>? CollectedIds = null,
+    bool Execute = false,
+    IEnumerable<int>? FilterBooks = null);
+
+    private string Build(LinkSpec spec)
+    {
+        var sb = new StringBuilder(LinkBase);
+        char sep = '?';
+
+        void Add(string key, string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return;
+            sb.Append(sep).Append(key).Append('=').Append(value);
+            sep = '&';
+        }
+
+        // Addressing: prefer id over b/ch/v
+        if (spec.Id.HasValue)
+            Add("id", spec.Id.Value.ToString());
+        else if (spec.Book.HasValue && spec.Chapter.HasValue && spec.Verse.HasValue)
+        {
+            Add("b", spec.Book.Value.ToString());
+            Add("ch", spec.Chapter.Value.ToString());
+            if (spec.Chapter2.HasValue) Add("ch2", spec.Chapter2.Value.ToString());
+            Add("v", spec.Verse.Value.ToString());
+            if (spec.Verse2.HasValue) Add("v2", spec.Verse2.Value.ToString());
+        }
+
+        Add("tr", spec.Translation);
+        if (spec.N.HasValue) Add("n", spec.N.Value.ToString());
+        if (!string.IsNullOrEmpty(spec.AnchorPhrase))
+            Add("ap", Uri.EscapeDataString(spec.AnchorPhrase));
+
+        if (spec.CollectedIds is not null)
+            foreach (int id in spec.CollectedIds.OrderBy(x => x))
+                Add("ids", id.ToString());
+
+        if (spec.Execute) Add("xids", "true");
+
+        if (spec.FilterBooks is not null)
+        {
+            foreach (int fb in spec.FilterBooks.OrderBy(x => x))
+            {
+                Add("fb", fb.ToString());
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private LinkSpec Current() => new(Id: ID,
+                                      Book: Book,
+                                      Chapter: Chapter,
+                                      Chapter2: Chapter2,
+                                      Verse: Verse,
+                                      Verse2: Verse2,
+                                      Translation: Translation,
+                                      N: N,
+                                      AnchorPhrase: AnchorPhrase,
+                                      CollectedIds: _collected,
+                                      Execute: ExecuteIDs == true,
+                                      FilterBooks: FilterBooks);
+
+    // Toggle a verse in/out of the collection
+    private string BuildToggleLink(int verseId)
+    {
+        var next = new HashSet<int>(_collected);
+        if (!next.Add(verseId)) next.Remove(verseId);
+        return Build(Current() with { CollectedIds = next });
+    }
+
+    // Run the collected set
+    private string BuildExecuteLink()
+        => Build(Current() with { Execute = true });
+
+    // Clear the collection
+    private string BuildClearCollectionLink()
+        => Build(Current() with { CollectedIds = null });
+
+    // Navigate to a specific verse keeping current collection
+    private string ContextVerseLink(DisplayedVerse v)
+        => Build(Current() with
+        {
+            Id = v.Id,
+            Book = null,
+            Chapter = null,
+            Chapter2 = null,
+            Verse = null,
+            Verse2 = null,
+            AnchorPhrase = null,
+            Execute = false
+        });
+
+    // Navigate to a verse with an anchor filter
+    private string BuildAnchorLink(int verseId, string anchorKey)
+        => Build(Current() with
+        {
+            Id = verseId,
+            Book = null,
+            Chapter = null,
+            Chapter2 = null,
+            Verse = null,
+            Verse2 = null,
+            AnchorPhrase = anchorKey
+        });
+
+    // Clear the anchor filter, keep everything else stripped (matches current behaviour)
+    private string BuildClearLink()
+    {
+        if (_result?.Primary is not { } p) return LinkBase;
+        return Build(new LinkSpec(Id: p.Id, Translation: Translation, N: N));
+    }
+    #endregion
+
+    private string BuildBookFilterLink(int bookId)
+    {
+        HashSet<int> currentFilters = FilterBooks is not null ? new(FilterBooks) : new();
+    
+        // Toggle logic: if it's there, remove it; if it's not, add it
+        if (!currentFilters.Add(bookId))
+        {
+            currentFilters.Remove(bookId);
+        }
+
+        // You will need to add `IEnumerable<int>? FilterBooks = null` to your LinkSpec record
+        return Build(Current() with { FilterBooks = currentFilters });
+    }
+
+    // Clear all selected book filters
+    private string BuildClearBookFilterLink()
+    {
+        return Build(Current() with { FilterBooks = null });
+    }
+}

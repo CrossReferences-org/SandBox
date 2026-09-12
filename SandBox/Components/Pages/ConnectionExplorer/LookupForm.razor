@@ -1,0 +1,129 @@
+@using SandBox.Data
+@using SandBox.Helpers
+@using SandBox.Services.ConnectionExplorer
+
+<form class="lookup" method="get" action="@Action">
+    <div class="form-row">
+        <label>
+            @BookLabel
+            <select name="b" required>
+                @foreach (var b in Books)
+                {
+                    <option value="@b.ID" selected="@(b.ID == SelectedBookId)">
+                        @MiscHelpers.GetBookName(b, Translation)
+                    </option>
+                }
+            </select>
+        </label>
+        <label>
+            @ChapterLabel
+            <input type="number" name="ch" min="1" value="@SelectedChapter" required />
+        </label>
+        <label>
+            @VerseLabel
+            <input type="number" name="v" min="1" value="@SelectedVerse" />
+        </label>
+        <label>
+            @Chapter2Label
+            <input type="number" name="ch2" min="1" value="@SelectedChapter2" />
+        </label>
+        <label>
+            @ToVerseLabel
+            <input type="number" name="v2" min="1" value="@SelectedVerse2" />
+        </label>
+    </div>
+
+    <div class="form-row">
+        <label>
+            @TranslationLabel
+            <select name="tr">
+                @{
+                    var grouped = new (string Language, BibleTranslation[] Codes)[]
+                    {
+                        ("Afrikaans", new[] { BibleTranslation.AOV }),
+                        ("English",   new[] { BibleTranslation.KJV, BibleTranslation.BSB }),
+                    };
+                }
+                @foreach (var g in grouped)
+                {
+                    <optgroup label="@g.Language">
+                        @foreach (var t in g.Codes)
+                        {
+                            <option value="@t" selected="@(t == Translation)">@Enum.GetName(typeof(BibleTranslation), t)</option>
+                        }
+                    </optgroup>
+                }
+            </select>
+        </label>
+        <label>
+            @ResultsLabel
+            <input type="number" name="n" min="1" value="@N" />
+        </label>
+        <button type="submit">@GoLabel</button>
+    </div>
+    @if (CollectedIds is { Length: > 0 })
+    {
+        @foreach (var id in CollectedIds)
+        {
+            <input type="hidden" name="ids" value="@id" />
+        }
+    }
+</form>
+
+@code {
+    [Parameter, EditorRequired] public string Action { get; set; } = "";
+    [Parameter, EditorRequired] public IReadOnlyList<Book> Books { get; set; } = Array.Empty<Book>();
+    [Parameter] public BibleTranslation Translation { get; set; } = BibleTranslation.BSB;
+
+    [Parameter] public int SelectedBookId { get; set; } = 1;
+    [Parameter] public int SelectedChapter { get; set; } = 1;
+    [Parameter] public int? SelectedChapter2 { get; set; } = 1;
+    [Parameter] public int SelectedVerse { get; set; } = 1;
+    [Parameter] public int? SelectedVerse2 { get; set; }
+    [Parameter] public int N { get; set; } = 30;
+    [Parameter] public int[]? CollectedIds { get; set; }
+
+    string BookLabel => Translation switch
+    {
+        BibleTranslation.AOV  => "Boek",
+        _ => "Book"
+    };
+
+    string ChapterLabel => Translation switch
+    {
+        BibleTranslation.AOV => "Hoofstuk",
+        _ => "Chapter"
+    };
+
+    string Chapter2Label => $"{ChapterLabel} 2";
+
+    string VerseLabel => Translation switch
+    {
+        BibleTranslation.AOV => "Vers",
+        _ => "Verse"
+    };
+
+    string ToVerseLabel => Translation switch
+    {
+        BibleTranslation.AOV => "Vers 2",
+        _ => "Verse 2"
+    };
+
+    string TranslationLabel => Translation switch
+    {
+        BibleTranslation.AOV => "Vertaling",
+        _ => "Translation"
+    };
+
+    string ResultsLabel => Translation switch
+    {
+        BibleTranslation.AOV => "Resultate",
+        _ => "Results"
+    };
+
+    string GoLabel => Translation switch
+    {
+        BibleTranslation.AOV => "Soek",
+        _ => "Go"
+    };
+}

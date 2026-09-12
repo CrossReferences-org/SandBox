@@ -1,0 +1,27 @@
+@using SandBox.Helpers
+@using SandBox.Services.ConnectionExplorer
+
+@foreach (DisplayedVerse item in Verses)
+{
+    string vsNr = item.Verse == 1 ? $"{item.Chapter}:{item.Verse}" : $"{item.Verse}";
+
+    <a href="@LinkBuilder(item)" data-enhance-nav="false" class="lnk-plain">
+        <sup class="vs-num vs-num--context">@vsNr</sup>
+    </a>
+
+    @if (ToggleLinkBuilder is not null && IsCollected is not null)
+    {
+        <a href="@ToggleLinkBuilder(item.Id)" data-enhance-nav="true" class="lnk-bare">
+            <sup>@(IsCollected(item.Id) ? "−" : "+")</sup>
+        </a>
+    }
+
+    <span class="context-text">@item.Text </span>
+}
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<DisplayedVerse> Verses { get; set; } = [];
+    [Parameter, EditorRequired] public Func<DisplayedVerse, string> LinkBuilder { get; set; } = default!;
+    [Parameter] public Func<int, string>? ToggleLinkBuilder { get; set; }
+    [Parameter] public Func<int, bool>? IsCollected { get; set; }
+}

@@ -1,0 +1,32 @@
+@using SandBox.Helpers
+@using SandBox.Services.ConnectionExplorer
+
+<p>
+    @foreach (CohortVerse cv in Verses)
+    {
+        string vsNr = cv.Verse.Verse == 1 ? $"{cv.Verse.Chapter}:{cv.Verse.Verse}" : $"{cv.Verse.Verse}";
+
+        <sup class="vs-num vs-num--cohort">@vsNr</sup>
+
+        @if (ToggleLinkBuilder is not null && IsCollected is not null)
+        {
+            <a href="@ToggleLinkBuilder(cv.Verse.Id)" data-enhance-nav="true" class="lnk-bare">
+                <sup>@(IsCollected(cv.Verse.Id) ? "−" : "+")</sup>
+            </a>
+        }
+
+        @TextHighlighter.HighlightVerse(
+            cv.Verse.Text,
+            cv.Anchors,
+            sequential: Sequential,
+            term => AnchorLinkBuilder(cv.Verse.Id, term))
+    }
+</p>
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<CohortVerse> Verses { get; set; } = [];
+    [Parameter, EditorRequired] public Func<int, string, string> AnchorLinkBuilder { get; set; } = default!;
+    [Parameter] public bool Sequential { get; set; }
+    [Parameter] public Func<int, string>? ToggleLinkBuilder { get; set; }
+    [Parameter] public Func<int, bool>? IsCollected { get; set; }
+}
