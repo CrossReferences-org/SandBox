@@ -41,7 +41,7 @@ Each level contributes less to the final score than the one before it:
 The weights and indicators are still moving, so treat the numbers as indicative.
 `CountInfo.cs` is where they live if you want to argue with them.
 
-### How to Run
+# How to Run
 You'll need the [.NET 10 SDK](https://dotnet.microsoft.com/download). 
 Clone this repository then:
 1. run `dotnet run --project SandBox`
@@ -53,7 +53,7 @@ for you.
 
 The data ships with the repo, so there's nothing to wire up.
 
-### Technical details
+# Technical details
 
 .NET 10, Blazor Server. The choice was made based mainly on the fact that I am 
 fluent in C# (not Blazor though), and I find it easiest to reason about a problem
@@ -68,7 +68,7 @@ Not hardened for public hosting. I do host it publicly, but the traffic is low
 enough that it hasn't mattered. Its purpose is to be an experiment people can
 play with, which carries a different burden than something built for consumers.
 
-## Data
+# Data
 
 `json/` is an export from
 [CrossReferences.org](https://github.com/CrossReferences-org/bible-cross-references),
