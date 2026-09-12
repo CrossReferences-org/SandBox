@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 # keys directory
 keys/
+
+# build deploy commands
+build_deploy.txt
