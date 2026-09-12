@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using SandBox.Components;
+using SandBox.Helpers;
 using SandBox.Services.ConnectionExplorer;
 
 namespace SandBox
@@ -17,7 +18,8 @@ namespace SandBox
             builder.Services.Configure<ForwardedHeadersOptions>(options =>
             {
                 options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-                // Cleared to ensure it trusts the reverse proxy in a typical Linux/Cloudflare deployment
+                // Trusts X-Forwarded-* from any upstream. That's safe only when the app is
+                // unreachable except through the proxy, which is the case in this deployment.
                 options.KnownIPNetworks.Clear();
                 options.KnownProxies.Clear();
             });
@@ -32,27 +34,26 @@ namespace SandBox
 
             builder.Services.AddSingleton(new ConnectionExplorerService(dataCache));
 
-            var keysPath = OperatingSystem.IsWindows()
-                    ? Path.Combine(builder.Environment.ContentRootPath, "keys")
-                    : "/var/lib/sandbox/keys";
+            // Keys are persisted on the server so circuits and antiforgery tokens survive
+            // a restart. Locally there's nothing worth persisting, so fall back to the
+            // framework default (~/.aspnet/DataProtection-Keys) rather than failing.
+            var keysPath = builder.Configuration["DataProtectionKeysPath"];
 
-            builder.Services.AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo(keysPath))
-                .SetApplicationName("SandBox");
+            var dataProtection = builder.Services.AddDataProtection()
+                                        .SetApplicationName("SandBox");
+
+            if (MiscHelpers.TryPrepareKeyDirectory(keysPath, out DirectoryInfo? keysDir))
+                dataProtection.PersistKeysToFileSystem(keysDir!);
 
             var app = builder.Build();
 
-            // 4. Place Forwarded Headers early in the HTTP pipeline
             app.UseForwardedHeaders();
 
             var pathBase = builder.Configuration["PathBase"];
             if (!string.IsNullOrEmpty(pathBase))
                 app.UsePathBase(pathBase);
 
-            // 5. Run your custom Serilog-backed middleware
-
             _ = app.Services.GetRequiredService<ConnectionExplorerService>();
-
 
 
             app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
@@ -62,7 +63,7 @@ namespace SandBox
 
             app.MapStaticAssets();
             app.MapRazorComponents<App>()
-                .AddInteractiveServerRenderMode();
+               .AddInteractiveServerRenderMode();
 
             app.Run();
         }

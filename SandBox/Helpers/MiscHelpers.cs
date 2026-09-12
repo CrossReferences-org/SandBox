@@ -5,6 +5,33 @@ namespace SandBox.Helpers;
 
 public static class MiscHelpers
 {
+    public static bool TryPrepareKeyDirectory(string? path, out DirectoryInfo? dir)
+    {
+        dir = null;
+
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        try
+        {
+            Directory.CreateDirectory(path);
+
+            // Existing isn't the same as writable — root-owned directories pass
+            // the first check and fail at the first write.
+            string probe = Path.Combine(path, $".probe-{Guid.NewGuid():N}");
+            File.WriteAllBytes(probe, []);
+            File.Delete(probe);
+
+            dir = new DirectoryInfo(path);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.WriteLine($"Key persistence disabled ({path}): {ex.Message}");
+            return false;
+        }
+    }
+
     public static (int ch, int vs, string text) GetDisplay(Verse v, BibleTranslation translation) => translation switch
     {
         BibleTranslation.KJV => (v.KjvChapter, v.KjvVerse, v.KjvText),
