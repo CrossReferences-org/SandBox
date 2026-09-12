@@ -1,25 +1,24 @@
-@using SandBox.Helpers
-@using SandBox.Services
-
 <p class="note">
     Pick a verse to see its connections.
 </p>
 <p>
-    This tool uses the same data as the main website's application,
-    but we follow the connections further down the chain.
-    This gives us more cross references, and a hopefully better ordering.
-    It sometimes also adds some context verses to those directly referenced.
+    This tool uses the cross-references from
+    <a href="https://github.com/CrossReferences-org/bible-cross-references">crossreferences.org</a>,
+    which build on the Treasury of Scripture Knowledge. The difference here is that we follow
+    the connections further down the chain, which surfaces more cross-references and a
+    hopefully better ordering. It sometimes also adds context verses alongside the ones
+    directly referenced.
 </p>
 <p>
-    The scoring and the indicators evolve continuously, so it is not documented.
-    Very, very basic idea of how scores are computed (each level adds less to the final score):
-    <ul>
-        <li><b>L1</b>: Direct references in this verse</li>
-        <li><b>Incoming</b>: Verses which reference this verse</li>
-        <li><b>L2</b>: References found for verses in L1 </li>
-        <li><b>L3</b>: References found for verses in L2 </li>
-    </ul>
+    The scoring and the indicators evolve continuously, so they aren't documented in detail.
+    Roughly, each level contributes less to the final score than the one before it:
 </p>
+<ul>
+    <li><b>L1</b>: Direct references in this verse</li>
+    <li><b>Incoming</b>: Verses which reference this verse</li>
+    <li><b>L2</b>: References found for verses in L1</li>
+    <li><b>L3</b>: References found for verses in L2</li>
+</ul>
 <p>
     Best is to play around and understand it by using it.
 </p>
