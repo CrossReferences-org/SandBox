@@ -7,7 +7,9 @@ showing only the references on a verse, it walks the reference graph a few hops
 out and scores what it finds — so verses that are connected indirectly, or that
 reference *into* your verse, surface too.
 
-See it live [here](https://crossreferences.org/sandbox/connection-explorer?b=19&ch=23&v=1&ch2=&v2=9&tr=BSB&n=30)
+A hosted version lives at
+[crossreferences.org](https://crossreferences.org/sandbox/connection-explorer?b=19&ch=23&v=1&v2=9&tr=BSB&n=30).
+This code is a near-identical twin.
 
 <img width="705" height="737" alt="image" src="https://github.com/user-attachments/assets/6a939383-7c5d-4461-950e-87b4e8a52369" />
 <img width="697" height="325" alt="image" src="https://github.com/user-attachments/assets/cf4407ae-a990-4327-aed0-9c6cab79bad6" />
