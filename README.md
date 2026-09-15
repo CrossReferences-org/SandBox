@@ -12,7 +12,8 @@ reference *into* your verse, surface too.
 > A hosted version lives at
 [crossreferences.org](https://crossreferences.org/sandbox/connection-explorer?b=19&ch=23&v=1&v2=9&tr=BSB&n=30).
 
-You can select more than one verse as a starting point.
+You can select more than one verse as a starting point.  
+*(if you're feeling adventurous you could select an entire book and have a look at the heatmap for interesting visuals)*
 
 <img width="786" height="635" alt="image" src="https://github.com/user-attachments/assets/4e2a6ce8-9711-4080-935e-45d493ad7ba1" />
 
