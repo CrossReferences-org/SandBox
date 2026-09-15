@@ -64,14 +64,27 @@ else
         ? $"{primary.BookName} {primary.Chapter}:{primary.Verse} - {_result.PossiblyUpdatedRefs.Chapter2}:{_result.PossiblyUpdatedRefs.Verse2}"
         : $"{primary.BookName} {primary.Chapter}:{primary.Verse}{toVerse_String}";
 
+
     if (_collected.Count > 0 && ExecuteIDs == true)
     {
         <p class="note">Showing references for collected verses.</p>
     }
     else
     {
-        <h1>@referencesForLabel() @primaryRef</h1>
+        var versesToDisplay = Book.HasValue && Chapter.HasValue
+                                ? _result.Cohort.TakeWhile(x => x.Verse.Chapter <= Chapter + 1).ToList()
+                                : _result.Cohort;
 
+        var contextAfter = _result.ContextAfter;
+        <h1>@referencesForLabel() @primaryRef</h1>
+        if (versesToDisplay.Count > 0 && versesToDisplay.Count < _result.Cohort.Count)
+        {
+            contextAfter = [];
+            var last = versesToDisplay.Last();
+            <p>
+                Only displaying verses up to @last.Verse.Chapter:@last.Verse.Verse
+            </p>
+        }
         <div class="source">
             @if (!string.IsNullOrWhiteSpace(AnchorPhrase))
             {
@@ -87,13 +100,13 @@ else
             ToggleLinkBuilder="BuildToggleLink"
             IsCollected="@(id => _collected.Contains(id))" />
 
-            <SourceVerses Verses="_result.Cohort"
+            <SourceVerses Verses="versesToDisplay"
             AnchorLinkBuilder="BuildAnchorLink"
             Sequential="@(_translation == BibleTranslation.KJV)"
             ToggleLinkBuilder="BuildToggleLink"
             IsCollected="@(id => _collected.Contains(id))" />
 
-            <SourceContextVerses Verses="_result.ContextAfter"
+            <SourceContextVerses Verses="contextAfter"
             LinkBuilder="ContextVerseLink"
             ToggleLinkBuilder="BuildToggleLink"
             IsCollected="@(id => _collected.Contains(id))" />

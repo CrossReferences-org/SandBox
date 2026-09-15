@@ -65,18 +65,20 @@ public class ConnectionExplorerService
         IEnumerable<DisplayedVerse> contextBefore = GetContextBefore(_verseDict[cohort[0].Verse.Id], 2).Select(x => ToDisplayed(x, translation));
         IEnumerable<DisplayedVerse> contextAfter = GetContextAfter(_verseDict[cohort[^1].Verse.Id], 2).Select(x => ToDisplayed(x, translation));
 
-
+        //var sw = System.Diagnostics.Stopwatch.StartNew();
         int depth = 3;
         Dictionary<int, CountInfo> hopResult = SandBoxHop(sources,
                                                          anchorPhrase,
                                                          translation,
                                                          depth,
                                                          executeIDs);
+        //sw.Stop();
+        //Console.WriteLine($"SandBoxHop: {sw.Elapsed.TotalMilliseconds:F1} ms");
 
         List<RankedHit> ranked = GetRankedHits(translation,
-                                                        hopResult,
-                                                        filterBooks,
-                                                        out Dictionary<int, double> bookHitScores);
+                                               hopResult,
+                                               filterBooks,
+                                               out Dictionary<int, double> bookHitScores);
 
         return new ConnectionExplorerResult(
             Cohort: cohort,
@@ -188,17 +190,23 @@ public class ConnectionExplorerService
         }
 
         // ---------- Hops 1..depth-1 ----------
-        List<int> currentIDsToCheck = [.. nextIDsToCheck.Distinct()];
+        // Each level is carried as distinct ids + how many paths reached each one,
+        // instead of a list with repeats. Adding the count once is identical to
+        // adding 1 that many times, but walks each verse's references only once.
+        Dictionary<int, int> idsToCheckWithPathCount = new(nextIDsToCheck.Count);
+        foreach (int targetId in nextIDsToCheck)
+            idsToCheckWithPathCount[targetId] = 1;   // hop 0 deduped per source, so every count is 1 here
+
         for (int hop = 1; hop < depth; hop++)
         {
-            int nextCap = Convert.ToInt32(Math.Round((hop == 1 ? CountInfo.L1_Avg
-                                                    : hop == 2 ? CountInfo.L2_Avg
-                                                    : CountInfo.L3_Avg) * 1.2)); // weet ne of hierdie voldoende is nie. Weet ook nie of dit in die groter prentjie soveel saak maak nie.
-            nextIDsToCheck = new(nextCap);
             bool isL2 = hop == 1;
             bool moreHops = hop < depth - 1;
 
-            foreach (int srcId in currentIDsToCheck)
+            Dictionary<int, int> nextIDsToCheckWithPathCount = moreHops
+                ? new(Convert.ToInt32(Math.Round(idsToCheckWithPathCount.Count * CountInfo.L1_Avg * 1.2)))
+                : [];
+
+            foreach ((int srcId, int pathCount) in idsToCheckWithPathCount)
             {
                 if (!_refsOnSourceDict.TryGetValue(srcId, out List<CrossReference>? refs))
                     continue;
@@ -208,17 +216,21 @@ public class ConnectionExplorerService
                         foreach (int targetId in range.VerseIDs)
                         {
                             if (moreHops)
-                                nextIDsToCheck.Add(targetId);
+                            {
+                                ref int targetPathCount = ref CollectionsMarshal.GetValueRefOrAddDefault(nextIDsToCheckWithPathCount, targetId, out _);
+                                targetPathCount += pathCount;
+                            }
 
                             ref CountInfo c = ref CollectionsMarshal.GetValueRefOrAddDefault(output, targetId, out _);
 
                             if (isL2)
-                                c.L2 += 1;
+                                c.L2 += pathCount;
                             else
-                                c.L3 += 1;
+                                c.L3 += pathCount;
                         }
             }
-            currentIDsToCheck = nextIDsToCheck;
+
+            idsToCheckWithPathCount = nextIDsToCheckWithPathCount;
         }
 
         // ---------- Incoming refs ----------
@@ -288,8 +300,7 @@ public class ConnectionExplorerService
 
         // Chapter
         {
-            int maxChapterNr = Math.Min(chapter.Value + 2, // No more than 3 chapters
-                                        _dataCache.GetChapterCount(translation, bookId.Value));
+            int maxChapterNr = _dataCache.GetChapterCount(translation, bookId.Value);
             chapter = Math.Clamp(chapter.Value, min: 1, max: maxChapterNr);
 
             if (chapter >= chapter2)
