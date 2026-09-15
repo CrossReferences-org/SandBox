@@ -32,12 +32,16 @@
         body {
             font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
             margin: auto;
-            max-width: 980px;
+            /* max-width: 1280px; */
             /* padding: 0 1.2em; */
             color: var(--ink);
             background: var(--paper);
             line-height: 1.55;
             font-feature-settings: "onum" 1;
+        }
+
+        .results {
+            max-width: 768px;
         }
 
         h1 {
@@ -223,16 +227,16 @@
             .row.header { display: none; }
         }
         .anchor-phrase {
-            --c1: #fff2a8;
-            --c2: #c8e6c9;
-            --c3: #ffd6e0;
-            --c4: #cfe2ff;
+            --c1: #fae2a88c;
+            --c2: #c8e6c9ac;
+            --c3: #fcd6e0ac;
+            --c4: #cfe2ffac;
 
             text-decoration: none;
             color: inherit;
             cursor: pointer;
-            padding: 0 2px;
-            border-radius: 2px;
+            padding: 1px 4px;
+            border-radius: 5px;
             background: var(--bg, var(--c1));
         }
 

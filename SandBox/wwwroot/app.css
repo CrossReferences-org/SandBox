@@ -82,8 +82,7 @@ h1:focus {
 
 .book-filter-grid {
     display: grid;
-    /* Adjust 45px to fit your preferred minimum box size */
-    grid-template-columns: repeat(auto-fill, minmax(45px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
     gap: 4px;
     margin: 1rem 0;
 }
@@ -102,10 +101,10 @@ h1:focus {
     line-height: 1.1;
 }
 
-    .book-node:hover {
-        filter: brightness(0.9);
-        transform: scale(1.05);
-    }
+.book-node:hover {
+    filter: brightness(0.9);
+    transform: scale(1.05);
+}
 
 .book-node--selected {
     border-color: #000;
@@ -114,6 +113,7 @@ h1:focus {
 
 .book-node__abbr {
     text-transform: capitalize;
+    white-space: nowrap;
 }
 
 .book-node__count {
