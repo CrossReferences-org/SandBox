@@ -14,18 +14,19 @@ reference *into* your verse, surface too.
 
 You can select more than one verse as a starting point.
 
-<img width="705" height="737" alt="image" src="https://github.com/user-attachments/assets/6a939383-7c5d-4461-950e-87b4e8a52369" />
+<img width="786" height="635" alt="image" src="https://github.com/user-attachments/assets/4e2a6ce8-9711-4080-935e-45d493ad7ba1" />
+
 
 A heatmap shows how results are distributed. It doubles as a filtering mechanism.
 To see results only from the Psalms and Proverbs, click on those.
 
-<img width="697" height="325" alt="image" src="https://github.com/user-attachments/assets/cf4407ae-a990-4327-aed0-9c6cab79bad6" />
+<img width="781" height="290" alt="image" src="https://github.com/user-attachments/assets/3ed151c4-77b5-42f5-b9f9-ea584d9aac2a" />
 
 Results are aggregated in a way that automatically includes context.
 The top-scoring verses are in black, while less relevant ones surrounding
 them are greyed based on score.
 
-<img width="701" height="818" alt="image" src="https://github.com/user-attachments/assets/588ef221-19c8-4307-8d75-4374dc5e7ec2" />
+<img width="786" height="812" alt="image" src="https://github.com/user-attachments/assets/ef88b653-8235-4755-bc08-a43d5a41e640" />
 
 ### Scoring
 
