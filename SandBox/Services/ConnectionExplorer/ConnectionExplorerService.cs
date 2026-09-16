@@ -30,7 +30,8 @@ public class ConnectionExplorerService
                                                     string? anchorPhrase,
                                                     int[]? batchIds,
                                                     bool? executeIDs,
-                                                    int[]? filterBooks)
+                                                    int[]? filterBooks,
+                                                    CountInfo.ScoreElements scoreElements)
     {
         BibleTranslation translation = tr ?? BibleTranslation.KJV;
 
@@ -68,17 +69,19 @@ public class ConnectionExplorerService
         //var sw = System.Diagnostics.Stopwatch.StartNew();
         int depth = 3;
         Dictionary<int, CountInfo> hopResult = SandBoxHop(sources,
-                                                         anchorPhrase,
-                                                         translation,
-                                                         depth,
-                                                         executeIDs);
+                                                          anchorPhrase,
+                                                          translation,
+                                                          depth,
+                                                          executeIDs,
+                                                          scoreElements);
         //sw.Stop();
         //Console.WriteLine($"SandBoxHop: {sw.Elapsed.TotalMilliseconds:F1} ms");
 
         List<RankedHit> ranked = GetRankedHits(translation,
                                                hopResult,
                                                filterBooks,
-                                               out Dictionary<int, double> bookHitScores);
+                                               out Dictionary<int, double> bookHitScores,
+                                               scoreElements);
 
         return new ConnectionExplorerResult(
             Cohort: cohort,
@@ -96,14 +99,15 @@ public class ConnectionExplorerService
                                                     L2: 2,
                                                     L3: 0,
                                                     L1_Incoming: 0,
-                                                    L1_Incoming_L1_Overlap: 0).WeightedScore();
+                                                    L1_Incoming_L1_Overlap: 0).WeightedScore(CountInfo.ScoreElements.None);
     private List<RankedHit> GetRankedHits(BibleTranslation translation,
                                           Dictionary<int, CountInfo> hopResult,
                                           int[]? filterBooks,
-                                          out Dictionary<int, double> bookHitScores)
+                                          out Dictionary<int, double> bookHitScores,
+                                          CountInfo.ScoreElements scoreElements)
     {
 
-        var ranked = hopResult.Select(kv => (kv, score: kv.Value.WeightedScore()))
+        var ranked = hopResult.Select(kv => (kv, score: kv.Value.WeightedScore(scoreElements)))
                               .Where(x => x.score >= _cutoff)
                               .OrderByDescending(x => x.score)
                               .Select(x => new RankedHit(Verse: ToDisplayed(_verseDict[x.kv.Key], translation),
@@ -145,10 +149,11 @@ public class ConnectionExplorerService
     /// evidence collected. Source verses themselves are excluded from the result.
     /// </summary>
     private Dictionary<int, CountInfo> SandBoxHop(List<Verse> sources,
-                                             string? anchorPhrase,
-                                             BibleTranslation translation,
-                                             int depth,
-                                             bool? executeIDs)
+                                                  string? anchorPhrase,
+                                                  BibleTranslation translation,
+                                                  int depth,
+                                                  bool? executeIDs,
+                                                  CountInfo.ScoreElements scoreElements)
     {
         //HashSet<int> sourceIds = [.. sources.Select(v => v.ID)];
         var sourceIds = sources.Select(v => v.ID).ToFrozenSet();
@@ -188,7 +193,6 @@ public class ConnectionExplorerService
                         c.L1 += 1;
                     }
         }
-
         // ---------- Hops 1..depth-1 ----------
         // Each level is carried as distinct ids + how many paths reached each one,
         // instead of a list with repeats. Adding the count once is identical to
@@ -232,7 +236,7 @@ public class ConnectionExplorerService
 
             idsToCheckWithPathCount = nextIDsToCheckWithPathCount;
         }
-
+        
         // ---------- Incoming refs ----------
         HashSet<int> reffedByIdSeen = [];
         foreach (Verse v in sources)

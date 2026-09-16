@@ -256,6 +256,7 @@ else
     [SupplyParameterFromQuery(Name = "ids")] public int[]? IdCollection { get; set; } = [];
     [SupplyParameterFromQuery(Name = "xids")] public bool? ExecuteIDs { get; set; }
     [SupplyParameterFromQuery(Name = "fb")] public int[]? FilterBooks { get; set; }
+    [SupplyParameterFromQuery(Name = "se")] public int? ScoreElements { get; set; }
 
     public const string BaseRoute = "/connection-explorer";          // for [Route]
     public const string LinkBase = "/sandbox/connection-explorer";  // for links and forms
@@ -293,7 +294,8 @@ else
                                              AnchorPhrase, 
                                              ExecuteIDs == true ? IdCollection : null, 
                                              ExecuteIDs, 
-                                             filterBooks: FilterBooks);
+                                             filterBooks: FilterBooks,
+                                             ScoreElements.HasValue ? (CountInfo.ScoreElements)ScoreElements : CountInfo.ScoreElements.All);
 
         Chapter = _result.PossiblyUpdatedRefs.Chapter;
         Chapter2 = _result.PossiblyUpdatedRefs.Chapter2;
