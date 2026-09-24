@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using SandBox.Components;
 using SandBox.Helpers;
 using SandBox.Services.ConnectionExplorer;
@@ -22,6 +24,30 @@ namespace SandBox
                 // unreachable except through the proxy, which is the case in this deployment.
                 options.KnownIPNetworks.Clear();
                 options.KnownProxies.Clear();
+            });
+
+            // The graph walk is synchronous and CPU-bound, so concurrent walks are capped
+            // at the core count minus one, leaving room for other things on the server.
+            // Overflow is refused immediately rather than queued behind a crawler.
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.AddConcurrencyLimiter("explorer", o =>
+                {
+                    o.PermitLimit = Math.Max(1, Environment.ProcessorCount - 1);
+                    o.QueueLimit = 4;
+                    o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                });
+
+                // A plain-text reply keeps rejection cheap. The limiter sits ahead of
+                // UseStatusCodePagesWithReExecute, so /not-found is never rendered for these.
+                options.OnRejected = async (ctx, ct) =>
+                {
+                    var response = ctx.HttpContext.Response;
+                    response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                    response.Headers.RetryAfter = "30";
+                    response.ContentType = "text/plain; charset=utf-8";
+                    await response.WriteAsync("The explorer is busy. Please try again in a moment.", ct);
+                };
             });
 
             var jsonPath = builder.Configuration["JsonPath"]
@@ -53,6 +79,11 @@ namespace SandBox
             if (!string.IsNullOrEmpty(pathBase))
                 app.UsePathBase(pathBase);
 
+            // Explicit, so routing sees the path after PathBase is stripped and the
+            // rate limiter can read the matched endpoint's policy.
+            app.UseRouting();
+            app.UseRateLimiter();
+
             _ = app.Services.GetRequiredService<ConnectionExplorerService>();
 
 
@@ -63,7 +94,8 @@ namespace SandBox
 
             app.MapStaticAssets();
             app.MapRazorComponents<App>()
-               .AddInteractiveServerRenderMode();
+               .AddInteractiveServerRenderMode()
+               .RequireRateLimiting("explorer");
 
             app.Run();
         }
