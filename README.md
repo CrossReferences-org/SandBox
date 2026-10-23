@@ -9,9 +9,6 @@ showing only the references on a verse, it walks the reference graph a few hops
 out and scores what it finds. Verses that are connected indirectly, or that
 reference *into* your verse, surface too.
 
-> A hosted version lives at
-[crossreferences.org](https://crossreferences.org/sandbox/connection-explorer?b=19&ch=23&v=1&v2=9&tr=BSB&n=30).
-
 You can select more than one verse as a starting point.  
 *(if you're feeling adventurous you could select an entire book and have a look at the heatmap for interesting visuals)*
 
@@ -66,9 +63,8 @@ graph walk fans out to thousands of verses per query, so execution speed matters
 Everything is in-memory: the app loads the JSON snapshot in `json/` at startup
 and keeps it in frozen dictionaries. No database, no setup.
 
-Not hardened for public hosting. I do host it publicly, but the traffic is low
-enough that it hasn't mattered. Its purpose is to be an experiment people can
-play with, which carries a different burden than something built for consumers.
+Not hardened for public hosting. I did host it publicly for some time, until someone
+decided they want to regularly spam requests.
 
 # Data
 
